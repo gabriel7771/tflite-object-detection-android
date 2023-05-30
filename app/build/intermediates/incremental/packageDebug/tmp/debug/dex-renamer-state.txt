@@ -1,0 +1,7 @@
+#Mon May 29 23:40:11 COT 2023
+base.1=/Users/juan.bustos/Desktop/blankfactor/projects/itel/computer_vision_tests/odml-pathways-main/object-detection/codelab2/android/final/app/build/intermediates/dex/debug/mergeProjectDexDebug/classes.dex
+path.1=classes.dex
+base.0=/Users/juan.bustos/Desktop/blankfactor/projects/itel/computer_vision_tests/odml-pathways-main/object-detection/codelab2/android/final/app/build/intermediates/dex/debug/mergeExtDexDebug/classes.dex
+renamed.1=classes2.dex
+renamed.0=classes.dex
+path.0=classes.dex
