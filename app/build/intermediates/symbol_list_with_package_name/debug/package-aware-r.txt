@@ -1795,6 +1795,7 @@ id action_text
 id actions
 id activity_chooser_view_content
 id add
+id addBoxButton
 id adjust_height
 id adjust_width
 id alertTitle
@@ -1922,9 +1923,6 @@ id ignore
 id ignoreRequest
 id image
 id imageView
-id imgSampleOne
-id imgSampleThree
-id imgSampleTwo
 id info
 id invisible
 id inward
@@ -1944,7 +1942,6 @@ id line3
 id linear
 id listMode
 id list_item
-id llSampleImage
 id masked
 id material_clock_display
 id material_clock_face
@@ -2137,7 +2134,6 @@ id transition_position
 id transition_scene_layoutid_cache
 id transition_transform
 id triangle
-id tvDescription
 id tvPlaceholder
 id unchecked
 id uniform
@@ -2418,6 +2414,7 @@ string path_password_eye_mask_visible
 string path_password_strike_through
 string search_menu_title
 string status_bar_notification_info_overflow
+string tv_add_box
 string tv_description
 string tv_placeholder
 string tv_take_photo

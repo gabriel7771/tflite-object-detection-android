@@ -37,6 +37,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.view.isVisible
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.Gson
@@ -66,14 +67,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     private lateinit var frameLayout: FrameLayout
     private lateinit var captureImageFab: Button
+    private lateinit var addBoxButton: Button
     private lateinit var inputImageView: ImageView
-    private lateinit var imgSampleOne: ImageView
-    private lateinit var imgSampleTwo: ImageView
-    private lateinit var imgSampleThree: ImageView
     private lateinit var tvPlaceholder: TextView
     private lateinit var currentPhotoPath: String
 
-    private val buttonsList = mutableListOf<Button>()
+    private val buttonsList = mutableListOf<BoxWithLabel>()
 
     private var scaleFactor = 1f
     private var originalImageWidth = 1
@@ -89,6 +88,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     private val gson = Gson()
 
+    private var detectionResults = mutableListOf<DetectionResult>()
+
+    private var pixelToCmRatio = 1f
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -96,15 +99,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         frameLayout = findViewById(R.id.frameLayout)
         captureImageFab = findViewById(R.id.captureImageFab)
         inputImageView = findViewById(R.id.imageView)
-        imgSampleOne = findViewById(R.id.imgSampleOne)
-        imgSampleTwo = findViewById(R.id.imgSampleTwo)
-        imgSampleThree = findViewById(R.id.imgSampleThree)
         tvPlaceholder = findViewById(R.id.tvPlaceholder)
+        addBoxButton = findViewById(R.id.addBoxButton)
 
         captureImageFab.setOnClickListener(this)
-        imgSampleOne.setOnClickListener(this)
-        imgSampleTwo.setOnClickListener(this)
-        imgSampleThree.setOnClickListener(this)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -129,11 +127,40 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         qrPayload = barcodesPayload.first()
                     }
                     setViewAndDetect(capturedBitmap)
+                    showAddBoxButton()
                 }
                 .addOnFailureListener {
                     Log.e(TAG, "onActivityResult: ", it)
                 }
         }
+    }
+
+    private fun showAddBoxButton() {
+        if (!addBoxButton.isVisible) {
+            addBoxButton.setOnClickListener {
+                addBox()
+            }
+        }
+        addBoxButton.isVisible = inputImageView.drawable != null
+    }
+
+    private fun addBox() {
+        val button = Button(this)
+        Log.d(TAG, "runObjectDetection: scaleFactor: $scaleFactor")
+        val width = 300
+        val height = 300
+        button.translationX = (frameLayout.width.toFloat() / 2f) - (width.toFloat() / 2f)
+        button.translationY = (frameLayout.height.toFloat() / 2f) - (height.toFloat() / 2f)
+        button.layoutParams = ViewGroup.LayoutParams(width, height)
+        button.setBackgroundResource(R.drawable.shape_transparent_with_border)
+        frameLayout.addView(button)
+        val textView = TextView(this)
+        textView.translationX = button.translationX
+        textView.translationY = button.translationY
+        textView.elevation = 2f
+        setOnDragListener(button)
+        frameLayout.addView(textView)
+        buttonsList.add(BoxWithLabel(button, textView))
     }
 
     /**
@@ -149,15 +176,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     Log.e(TAG, e.message.toString())
                 }
             }
-            R.id.imgSampleOne -> {
-                setViewAndDetect(getSampleImage(R.drawable.img_meal_one))
-            }
-            R.id.imgSampleTwo -> {
-                setViewAndDetect(getSampleImage(R.drawable.img_meal_two))
-            }
-            R.id.imgSampleThree -> {
-                setViewAndDetect(getSampleImage(R.drawable.img_meal_three))
-            }
         }
     }
 
@@ -172,11 +190,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         // Step 2: Initialize the detector object
         val options = ObjectDetector.ObjectDetectorOptions.builder()
                 .setMaxResults(5)
-                .setScoreThreshold(0.4f)
+                .setScoreThreshold(0.3f)
                 .build()
         val detector = ObjectDetector.createFromFileAndOptions(
                 this,
-                "cabinet.tflite",
+                "cabinets_model.tflite",
                 options
         )
 
@@ -192,12 +210,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             // Create a data object to display the detection result
             DetectionResult(it.boundingBox, text)
         }
+        detectionResults.addAll(resultToDisplay)
         // Draw the detection result on the bitmap and show it.
         val imgWithResult = drawDetectionResult(bitmap, resultToDisplay)
         runOnUiThread {
             inputImageView.setImageBitmap(imgWithResult)
             for (button in buttonsList) {
-                frameLayout.removeView(button)
+                frameLayout.removeView(button.box)
+                frameLayout.removeView(button.label)
             }
             val currentImageHeight = inputImageView.height
             scaleFactor = currentImageHeight.toFloat() / originalImageHeight.toFloat()
@@ -207,33 +227,36 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             val qrPerimeterPx = 4 * qrWidthPx
             val qrWidthCm = qrPayload.referenceQRPayload.width
             val qrPerimeterCm = 4 * qrWidthCm
-            val pixelToCmRatio = qrPerimeterPx / qrPerimeterCm
+            pixelToCmRatio = qrPerimeterPx / qrPerimeterCm
 
-            for (result in resultToDisplay) {
-                val button = Button(this)
-                buttonsList.add(button)
-                button.translationX = (result.boundingBox.centerX()) * scaleFactor
-                button.translationY = (result.boundingBox.top) * scaleFactor
-                Log.d(TAG, "runObjectDetection: scaleFactor: $scaleFactor")
-                val width = (result.boundingBox.right - result.boundingBox.left) * scaleFactor
-                val height = (result.boundingBox.bottom - result.boundingBox.top) * scaleFactor
-                button.layoutParams = ViewGroup.LayoutParams(width.toInt(), height.toInt())
-                button.setBackgroundResource(R.drawable.shape_transparent_with_border)
-                frameLayout.addView(button)
-                Log.d(TAG, "runObjectDetection: width: $width")
-                Log.d(TAG, "runObjectDetection: pixelToCmRatio: $pixelToCmRatio")
-                val widthCm = width / pixelToCmRatio
-                val heightCm = height / pixelToCmRatio
-                Log.d(TAG, "runObjectDetection: width cm: $widthCm height cm: $heightCm")
-                val textView = TextView(this)
-                val displayWidth = String.format("%.2f", widthCm)
-                val displayHeight = String.format("%.2f", heightCm)
-                textView.text = "${result.text} $displayWidth x $displayHeight cm"
-                textView.translationX = button.translationX
-                textView.translationY = button.translationY
-                setOnDragListener(button)
-                frameLayout.addView(textView)
-            }
+//            for (result in resultToDisplay) {
+//                val button = Button(this)
+//                button.translationX = (result.boundingBox.centerX()) * scaleFactor
+//                button.translationY = (result.boundingBox.top) * scaleFactor
+//                Log.d(TAG, "runObjectDetection: scaleFactor: $scaleFactor")
+//                val width = (result.boundingBox.right - result.boundingBox.left) * scaleFactor
+//                val height = (result.boundingBox.bottom - result.boundingBox.top) * scaleFactor
+//                button.layoutParams = ViewGroup.LayoutParams(width.toInt(), height.toInt())
+//                button.setBackgroundResource(R.drawable.shape_transparent_with_border)
+//                frameLayout.addView(button)
+//                Log.d(TAG, "runObjectDetection: width: $width")
+//                Log.d(TAG, "runObjectDetection: pixelToCmRatio: $pixelToCmRatio")
+//                val widthCm = width / pixelToCmRatio
+//                val heightCm = height / pixelToCmRatio
+//                Log.d(TAG, "runObjectDetection: width cm: $widthCm height cm: $heightCm")
+//                val textView = TextView(this)
+//                val displayWidth = String.format("%.2f", widthCm)
+//                val displayHeight = String.format("%.2f", heightCm)
+//                textView.text = "${result.text} $displayWidth x $displayHeight cm"
+//                textView.translationX = button.translationX
+//                textView.translationY = button.translationY
+//                setOnDragListener(button)
+//                frameLayout.addView(textView)
+//                buttonsList.add(BoxWithLabel(button, textView))
+//            }
+
+
+
             /*
             val button = Button(this)
             buttonsList.add(button)
@@ -245,9 +268,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             button.layoutParams = ViewGroup.LayoutParams(width.toInt(), height.toInt())
             button.setBackgroundResource(R.drawable.shape_transparent_with_border)
             frameLayout.addView(button)
-
              */
         }
+    }
+
+    private fun recalculateDimensions(button: BoxWithLabel) {
+        val width = button.box.width
+        val height = button.box.height
+        val widthCm = width / pixelToCmRatio
+        val heightCm = height / pixelToCmRatio
+        val displayWidth = String.format("%.2f", widthCm)
+        val displayHeight = String.format("%.2f", heightCm)
+        button.label.text = "$displayWidth x $displayHeight cm"
+        button.label.translationX = button.box.translationX
+        button.label.translationY = button.box.translationY
     }
 
     private var startX = 0
@@ -301,6 +335,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     }
                     startX = event.x.toInt()
                     startY = event.y.toInt()
+                    val boxWithLabel = buttonsList.find { it.box == button }
+                    boxWithLabel?.let {
+                        recalculateDimensions(boxWithLabel)
+                    }
                     view.requestLayout()
                 }
             }
@@ -477,6 +515,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         pen.textAlign = Paint.Align.LEFT
         Log.d(TAG, "drawDetectionResult: canvas width: ${canvas.width}")
         Log.d(TAG, "drawDetectionResult: canvas height: ${canvas.height}")
+        Log.d(TAG, "drawDetectionResult: detectionResults: $detectionResults")
         originalImageWidth = canvas.width
         originalImageHeight = canvas.height
         detectionResults.forEach {
@@ -524,6 +563,11 @@ data class ReferenceQRPayload(
 data class QRPayload(
     val referenceQRPayload: ReferenceQRPayload = ReferenceQRPayload(),
     val boundingBox: Rect = Rect()
+)
+
+data class BoxWithLabel(
+    val box: Button,
+    val label: TextView
 )
 
 enum class TouchX {
