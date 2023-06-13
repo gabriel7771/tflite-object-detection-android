@@ -31,10 +31,7 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
@@ -72,7 +69,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private lateinit var tvPlaceholder: TextView
     private lateinit var currentPhotoPath: String
 
-    private val buttonsList = mutableListOf<BoxWithLabel>()
+    private val buttonsList = mutableListOf<Button>()
 
     private var scaleFactor = 1f
     private var originalImageWidth = 1
@@ -123,8 +120,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                             null
                         }
                     }
-                    if (barcodesPayload?.isNotEmpty() == true) {
-                        qrPayload = barcodesPayload.first()
+                    if (barcodesPayload?.isEmpty() == true) {
+                        Toast.makeText(this, "No valid QR code detected", Toast.LENGTH_SHORT).show()
+                    } else {
+                        qrPayload = barcodesPayload!!.first()
                     }
                     setViewAndDetect(capturedBitmap)
                     showAddBoxButton()
@@ -153,14 +152,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         button.translationY = (frameLayout.height.toFloat() / 2f) - (height.toFloat() / 2f)
         button.layoutParams = ViewGroup.LayoutParams(width, height)
         button.setBackgroundResource(R.drawable.shape_transparent_with_border)
+        button.textSize = 10f
         frameLayout.addView(button)
-        val textView = TextView(this)
-        textView.translationX = button.translationX
-        textView.translationY = button.translationY
-        textView.elevation = 2f
         setOnDragListener(button)
-        frameLayout.addView(textView)
-        buttonsList.add(BoxWithLabel(button, textView))
+        buttonsList.add(button)
     }
 
     /**
@@ -216,8 +211,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         runOnUiThread {
             inputImageView.setImageBitmap(imgWithResult)
             for (button in buttonsList) {
-                frameLayout.removeView(button.box)
-                frameLayout.removeView(button.label)
+                frameLayout.removeView(button)
             }
             val currentImageHeight = inputImageView.height
             scaleFactor = currentImageHeight.toFloat() / originalImageHeight.toFloat()
@@ -272,16 +266,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    private fun recalculateDimensions(button: BoxWithLabel) {
-        val width = button.box.width
-        val height = button.box.height
+    private fun recalculateDimensions(button: Button) {
+        val width = button.width
+        val height = button.height
         val widthCm = width / pixelToCmRatio
         val heightCm = height / pixelToCmRatio
         val displayWidth = String.format("%.2f", widthCm)
         val displayHeight = String.format("%.2f", heightCm)
-        button.label.text = "$displayWidth x $displayHeight cm"
-        button.label.translationX = button.box.translationX
-        button.label.translationY = button.box.translationY
+        val displayText = "$displayWidth x $displayHeight cm"
+        button.text = displayText
+        button.translationX = button.translationX
+        button.translationY = button.translationY
     }
 
     private var startX = 0
@@ -335,7 +330,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     }
                     startX = event.x.toInt()
                     startY = event.y.toInt()
-                    val boxWithLabel = buttonsList.find { it.box == button }
+                    val boxWithLabel = buttonsList.find { it == button }
                     boxWithLabel?.let {
                         recalculateDimensions(boxWithLabel)
                     }
@@ -563,11 +558,6 @@ data class ReferenceQRPayload(
 data class QRPayload(
     val referenceQRPayload: ReferenceQRPayload = ReferenceQRPayload(),
     val boundingBox: Rect = Rect()
-)
-
-data class BoxWithLabel(
-    val box: Button,
-    val label: TextView
 )
 
 enum class TouchX {
